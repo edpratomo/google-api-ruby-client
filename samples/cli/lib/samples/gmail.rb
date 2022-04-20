@@ -15,6 +15,8 @@
 require 'google/apis/gmail_v1'
 require 'base_cli'
 require 'rmail'
+require 'pp'
+require 'json'
 
 module Samples
   # Examples for the Gmail API
@@ -153,5 +155,50 @@ module Samples
       puts "signature of #{impersonated_email} is now: #{result.signature}"
     end
 
+    desc 'user_watch', 'call users.watch REST API'
+    def user_watch
+      gmail = Gmail::GmailService.new
+      gmail.authorization = user_credentials_for(Gmail::AUTH_SCOPE)
+
+      watch_request = Google::Apis::GmailV1::WatchRequest.new(
+                        label_ids: ['UNREAD'],
+                        label_filter_action: 'include',
+                        topic_name: 'projects/jbreg-309505/topics/MaintCal'
+                      )
+      watch_response = gmail.watch_user('me', watch_request) #{|result,err| }
+
+      pp watch_response
+      if watch_response
+        File.open("watch_response.json", "w") do |fh|
+          fh.print(JSON.print({expiration: watch_response.expiration / 1000, history_id: watch_response.history_id}))
+        end
+      end
+    end
+
+    desc 'user_stop', 'call users.stop REST API'
+    def user_stop
+      gmail = Gmail::GmailService.new
+      gmail.authorization = user_credentials_for(Gmail::AUTH_SCOPE)
+
+      gmail.stop_user('me')
+      puts "stopped watch"
+    end
+
+    desc 'user_history', 'call users.history REST API'
+    method_option :history_id, type: :string, required: true
+    def user_history
+      gmail = Gmail::GmailService.new
+      gmail.authorization = user_credentials_for(Gmail::AUTH_SCOPE)
+      list_history_response = gmail.list_user_histories('me', start_history_id: options[:history_id], label_id: ["UNREAD"])
+      list_history_response.history.each do |hist|
+        hist.messages.each do |message|
+          pp message
+          mail_message = gmail.get_user_message('me', message.id)
+          pp mail_message.payload
+          #pp mail_message.raw
+        end
+      end
+    end
   end
+
 end
