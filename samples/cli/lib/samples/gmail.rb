@@ -156,49 +156,82 @@ module Samples
     end
 
     desc 'user_watch', 'call users.watch REST API'
+    method_option :email, type: :string, required: false
     def user_watch
       gmail = Gmail::GmailService.new
       gmail.authorization = user_credentials_for(Gmail::AUTH_SCOPE)
 
+      user = options[:email] || 'me'
       watch_request = Google::Apis::GmailV1::WatchRequest.new(
                         label_ids: ['UNREAD'],
                         label_filter_action: 'include',
                         topic_name: 'projects/jbreg-309505/topics/MaintCal'
                       )
-      watch_response = gmail.watch_user('me', watch_request) #{|result,err| }
+      watch_response = gmail.watch_user(user, watch_request) #{|result,err| }
 
       pp watch_response
       if watch_response
         File.open("watch_response.json", "w") do |fh|
-          fh.print(JSON.print({expiration: watch_response.expiration / 1000, history_id: watch_response.history_id}))
+          fh.print(JSON.pretty_generate({expiration: watch_response.expiration / 1000, history_id: watch_response.history_id}))
         end
       end
     end
 
     desc 'user_stop', 'call users.stop REST API'
+    method_option :email, type: :string, required: false
     def user_stop
       gmail = Gmail::GmailService.new
       gmail.authorization = user_credentials_for(Gmail::AUTH_SCOPE)
 
-      gmail.stop_user('me')
+      user = options[:email] || 'me'
+      gmail.stop_user(user)
       puts "stopped watch"
     end
 
-    desc 'user_history', 'call users.history REST API'
-    method_option :history_id, type: :string, required: true
-    def user_history
+    desc 'user_history HISTORY_ID', 'call users.history REST API'
+    method_option :email, type: :string, required: false
+    def user_history(history_id)
       gmail = Gmail::GmailService.new
       gmail.authorization = user_credentials_for(Gmail::AUTH_SCOPE)
-      list_history_response = gmail.list_user_histories('me', start_history_id: options[:history_id], label_id: ["UNREAD"])
+      user = options[:email] || 'me'
+      list_history_response = gmail.list_user_histories(user, start_history_id: history_id, label_id: ["UNREAD"], history_types: ["messageAdded", "labelAdded"]) # 
       list_history_response.history.each do |hist|
+        #pp hist
+        puts "history_id: #{hist.id}"
         hist.messages.each do |message|
-          pp message
-          mail_message = gmail.get_user_message('me', message.id)
-          pp mail_message.payload
-          #pp mail_message.raw
+          puts "  messages      : #{message.id} thread_id: #{message.thread_id}"
+        end
+        unless hist.messages_added
+          puts "  NO messages_added."
+          next
+        end
+        hist.messages_added.each do |hist_message_added|
+          puts "  messages_added: #{hist_message_added.message.id} thread_id: #{hist_message_added.message.thread_id}"
         end
       end
     end
-  end
 
+    desc 'user_message ID', 'call users.messages.get REST API'
+    method_option :email, type: :string, required: false
+    def user_message(id)
+      gmail = Gmail::GmailService.new
+      gmail.authorization = user_credentials_for(Gmail::AUTH_SCOPE)
+      user = options[:email] || 'me'
+      result = gmail.get_user_message(user, id)
+      #pp result.payload
+      payload = result.payload
+      headers = payload.headers
+
+      date = headers.any? { |h| h.name == 'Date' } ? headers.find { |h| h.name == 'Date' }.value : ''
+      from = headers.any? { |h| h.name == 'From' } ? headers.find { |h| h.name == 'From' }.value : ''
+      to = headers.any? { |h| h.name == 'To' } ? headers.find { |h| h.name == 'To' }.value : ''
+      subject = headers.any? { |h| h.name == 'Subject' } ? headers.find { |h| h.name == 'Subject' }.value : ''
+
+      puts "id: #{result.id}"
+      puts "date: #{date}"
+      puts "from: #{from}"
+      puts "to: #{to}"
+      puts "subject: #{subject}"
+    end
+  end
 end
