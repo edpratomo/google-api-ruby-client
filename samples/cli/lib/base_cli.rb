@@ -24,7 +24,8 @@ require 'os'
 class BaseCli < Thor
   include Thor::Actions
 
-  OOB_URI = 'urn:ietf:wg:oauth:2.0:oob'
+  #OOB_URI = 'urn:ietf:wg:oauth:2.0:oob'
+  OOB_URI = 'http://localhost:1'
 
   class_option :user, :type => :string
   class_option :api_key, :type => :string

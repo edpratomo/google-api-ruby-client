@@ -157,6 +157,7 @@ module Samples
 
     desc 'user_watch', 'call users.watch REST API'
     method_option :email, type: :string, required: false
+    method_option :topic, type: :string, required: true
     def user_watch
       gmail = Gmail::GmailService.new
       gmail.authorization = user_credentials_for(Gmail::AUTH_SCOPE)
@@ -165,7 +166,7 @@ module Samples
       watch_request = Google::Apis::GmailV1::WatchRequest.new(
                         label_ids: ['UNREAD'],
                         label_filter_action: 'include',
-                        topic_name: 'projects/jbreg-309505/topics/MaintCal'
+                        topic_name: options[:topic]
                       )
       watch_response = gmail.watch_user(user, watch_request) #{|result,err| }
 
